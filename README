@@ -1,0 +1,140 @@
+/*
+Package main implements a customer data processing program.
+
+The program reads customer data from a CSV file, extracts email domains, and
+returns a sorted data structure with the count of customers for each email domain.
+
+File: customerimporter.go
+Author: [Paulina Górecka]
+Date: [24.11.2023]
+
+Usage:
+- To run the program: go run customerimporter.go
+- To run tests: go test
+
+Dependencies:
+- The program uses the "encoding/csv" and "log" packages.
+
+*/
+
+package main
+
+import (
+	"encoding/csv"
+	"encoding/json"
+	"fmt"
+	"log"
+	"os"
+	"sort"
+	"strings"
+)
+
+/*
+Function processCustomerData reads customer data from a CSV file, extracts email domains,
+and returns a map with the count of customers for each email domain.
+
+Parameters:
+
+	filePath (string): The path to the CSV file.
+
+Returns:
+
+	map[string]int: A map containing email domains as keys and the count of customers as values.
+*/
+
+func processCustomerData(filePath string) map[string]int {
+	emailDomains := make(map[string]int)
+
+	file, err := os.Open(filePath)
+	if err != nil {
+		log.Fatal("Error opening file:", err)
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	records, err := reader.ReadAll()
+	if err != nil {
+		log.Fatal("Error reading CSV:", err)
+	}
+
+	for _, row := range records {
+		if len(row) > 2 {
+			email := row[2]
+			splitEmail := strings.Split(email, "@")
+			if len(splitEmail) >= 2 {
+				domain := splitEmail[1]
+				emailDomains[domain]++
+			} else {
+				log.Println("Email doesn't contain '@'")
+			}
+		}
+	}
+
+	return emailDomains
+}
+
+/*
+Function main is the entry point of the program. It reads customer data, processes it,
+saves results to a JSON file, and prints the sorted results.
+
+Usage:
+
+	go run customerimporter.go
+
+Dependencies:
+
+	The program depends on the "encoding/json" and "sort" packages.
+*/
+
+func main() {
+	filePath := "customers.csv"
+	results := processCustomerData(filePath)
+
+	// Save results to JSON file
+	jsonFilePath := "results.json"
+	err := saveResultsToFile(results, jsonFilePath)
+	if err != nil {
+		log.Fatal("Error saving results to file:", err)
+	}
+
+	// Print sorted results
+	var sortedResults []string
+	for domain, count := range results {
+		sortedResults = append(sortedResults, fmt.Sprintf("%s: %d customers", domain, count))
+	}
+	sort.Strings(sortedResults)
+
+	fmt.Println("Email Domains and Number of Customers:")
+	for _, entry := range sortedResults {
+		fmt.Println(entry)
+	}
+}
+
+/*
+Function saveResultsToFile encodes the results map to JSON and saves it to a file.
+
+Parameters:
+
+	results (map[string]int): The map containing email domains and customer counts.
+	filePath (string): The path to the JSON file.
+
+Returns:
+
+	error: An error, if any, encountered during file writing.
+*/
+
+func saveResultsToFile(results map[string]int, filePath string) error {
+	file, err := os.Create(filePath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	encoder := json.NewEncoder(file)
+	err = encoder.Encode(results)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
